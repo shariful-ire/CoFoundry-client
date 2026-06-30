@@ -39,7 +39,7 @@ const ROLE_BADGE = {
 };
 
 /* ── Sidebar inner content (shared between desktop + mobile) ── */
-function SidebarContent({ role, user, onClose }) {
+function SidebarContent({ role, user, onClose, onSignOut }) {
   const pathname = usePathname();
   const links    = NAV[role] ?? [];
   const badge    = ROLE_BADGE[role];
@@ -116,6 +116,7 @@ function SidebarContent({ role, user, onClose }) {
       {/* Bottom: logout */}
       <div className="px-3 py-4 border-t border-border">
         <button
+          onClick={onSignOut}
           className="group flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-text-muted hover:bg-danger-light hover:text-danger transition-all"
         >
           <TbLogout className="text-xl" />
@@ -127,12 +128,12 @@ function SidebarContent({ role, user, onClose }) {
 }
 
 /* ── Main export ── */
-export default function DashboardSidebar({ role, user, mobileOpen, setMobileOpen }) {
+export default function DashboardSidebar({ role, user, mobileOpen, setMobileOpen, onSignOut }) {
   return (
     <>
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-white border-r border-border min-h-screen sticky top-0">
-        <SidebarContent role={role} user={user} />
+        <SidebarContent role={role} user={user} onSignOut={onSignOut} />
       </aside>
 
       {/* Mobile overlay + drawer */}
@@ -163,6 +164,7 @@ export default function DashboardSidebar({ role, user, mobileOpen, setMobileOpen
                 role={role}
                 user={user}
                 onClose={() => setMobileOpen(false)}
+                onSignOut={onSignOut}
               />
             </motion.aside>
           </>
