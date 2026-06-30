@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiMenuAlt3, HiX } from 'react-icons/hi';
 import { TbRocket } from 'react-icons/tb';
 import { HiOutlineUserCircle } from 'react-icons/hi2';
+import { useAuth } from '@/context/AuthContext';
 
 const publicLinks = [
   { label: 'Home', href: '/' },
@@ -19,8 +20,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // placeholder — will be replaced by real auth context later
-  const user = null;
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -108,6 +108,7 @@ export default function Navbar() {
                   </motion.div>
                 </Link>
                 <motion.button
+                  onClick={logout}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="text-sm font-medium px-4 py-2 rounded-lg border border-border text-text-muted hover:border-danger hover:text-danger transition-colors"

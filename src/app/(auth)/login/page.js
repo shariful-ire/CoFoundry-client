@@ -3,15 +3,33 @@
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   TbMail, TbLock, TbEye, TbEyeOff, TbArrowRight, TbBrandGoogle,
 } from 'react-icons/tb';
 import toast from 'react-hot-toast';
+import api from '@/lib/axios';
+import { useAuth } from '@/context/AuthContext';
+
+const ROLE_REDIRECT = {
+  admin:        '/dashboard/admin',
+  founder:      '/dashboard/founder',
+  collaborator: '/dashboard/collaborator',
+};
 
 export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'blocked')          toast.error('Your account has been suspended.');
+    else if (error === 'google_failed') toast.error('Google sign-in failed. Please try again.');
+  }, [searchParams]);
 
   const {
     register,
@@ -22,23 +40,22 @@ export default function LoginPage() {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      // TODO: wire to Better Auth signIn
-      console.log('Login data:', data);
-      toast.success('Login successful!');
+      const res = await api.post('/api/auth/login', {
+        email:    data.email,
+        password: data.password,
+      });
+      login(res.data.user);
+      toast.success('Welcome back!');
+      router.push(ROLE_REDIRECT[res.data.user.role] ?? '/dashboard');
     } catch (err) {
-      toast.error(err?.message ?? 'Login failed. Please try again.');
+      toast.error(err?.response?.data?.message ?? 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogle = async () => {
-    try {
-      // TODO: wire to Better Auth signIn with Google
-      toast('Google OAuth coming soon');
-    } catch {
-      toast.error('Google sign-in failed.');
-    }
+  const handleGoogle = () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/auth/google`;
   };
 
   return (

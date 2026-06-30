@@ -6,12 +6,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   TbUser, TbMail, TbLock, TbEye, TbEyeOff,
   TbArrowRight, TbBrandGoogle, TbCamera, TbRocket,
   TbBriefcase, TbCheck,
 } from 'react-icons/tb';
 import toast from 'react-hot-toast';
+import api from '@/lib/axios';
+import { useAuth } from '@/context/AuthContext';
 
 /* ── Zod schema ── */
 const schema = z
@@ -91,6 +94,11 @@ function RoleCard({ value, label, icon: Icon, description, selected, onClick }) 
   );
 }
 
+const ROLE_REDIRECT = {
+  founder:      '/dashboard/founder',
+  collaborator: '/dashboard/collaborator',
+};
+
 export default function RegisterPage() {
   const [showPass, setShowPass]        = useState(false);
   const [showConfirm, setShowConfirm]  = useState(false);
@@ -98,7 +106,9 @@ export default function RegisterPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [imageUrl, setImageUrl]        = useState('');
   const [uploadingImg, setUploadingImg] = useState(false);
-  const fileRef = useRef(null);
+  const fileRef  = useRef(null);
+  const router   = useRouter();
+  const { login } = useAuth();
 
   const {
     register,
@@ -111,6 +121,10 @@ export default function RegisterPage() {
   const password = watch('password', '');
   const role     = watch('role');
   const strength = getStrength(password);
+
+  const handleGoogle = () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/auth/google`;
+  };
 
   /* Image selection & upload */
   const handleImageChange = async (e) => {
@@ -141,11 +155,18 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      // TODO: wire to Better Auth signUp with { ...data, image: imageUrl }
-      console.log('Register payload:', { ...data, image: imageUrl });
-      toast.success('Account created! Redirecting…');
+      const res = await api.post('/api/auth/register', {
+        name:     data.name,
+        email:    data.email,
+        password: data.password,
+        role:     data.role,
+        image:    imageUrl,
+      });
+      login(res.data.user);
+      toast.success('Account created! Welcome to CoFoundry 🚀');
+      router.push(ROLE_REDIRECT[res.data.user.role] ?? '/dashboard');
     } catch (err) {
-      toast.error(err?.message ?? 'Registration failed. Please try again.');
+      toast.error(err?.response?.data?.message ?? 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -171,6 +192,7 @@ export default function RegisterPage() {
         {/* Google */}
         <motion.button
           type="button"
+          onClick={handleGoogle}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
           className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-border bg-surface-alt hover:bg-white hover:border-brand-200 transition-all text-sm font-semibold text-text shadow-sm mb-6"

@@ -10,9 +10,12 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      // Unauthenticated — redirect to login (only in browser)
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        const { pathname } = window.location;
+        const onAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register');
+        if (!onAuthPage) {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(err);
