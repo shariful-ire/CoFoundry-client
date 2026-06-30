@@ -1,9 +1,16 @@
-import Image from "next/image";
+import HeroBanner from '@/components/home/HeroBanner';
 
-export default function Home() {
+export const metadata = {
+  title: 'CoFoundry — Build Your Dream Team',
+  description:
+    'Connect with startup founders and collaborators. Find your co-founder, post team openings, and build something great together.',
+};
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <h1 className="text-9xl text-blue-500">Start CoFoundry... </h1>
-    </div>
+    <>
+      <HeroBanner />
+      {/* more sections coming next */}
+    </>
   );
 }
