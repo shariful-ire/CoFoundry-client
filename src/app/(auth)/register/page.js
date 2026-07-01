@@ -5,16 +5,26 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   TbUser, TbMail, TbLock, TbEye, TbEyeOff,
-  TbArrowRight, TbBrandGoogle, TbCamera,
+  TbArrowRight, TbBrandGoogle, TbCamera, TbCheck,
 } from 'react-icons/tb';
 import toast from 'react-hot-toast';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import RoleSelect from '@/components/RoleSelect';
+
+/* Reads the payload of a signed JWT without verifying it — only used to
+ * show the user's name/email back to them; never trusted for auth. */
+function decodeJwtPayload(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
 
 /* ── Zod schema ── */
 const schema = z
@@ -66,7 +76,7 @@ async function uploadToImgBB(file) {
   return json.data.url;
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [showPass, setShowPass]        = useState(false);
   const [showConfirm, setShowConfirm]  = useState(false);
   const [loading, setLoading]          = useState(false);
@@ -370,5 +380,91 @@ export default function RegisterPage() {
         </p>
       </div>
     </motion.div>
+  );
+}
+
+/* Shown when the user clicked "Continue with Google" from the Login page
+ * and doesn't have an account yet — Google already authenticated them, we
+ * just need a role before creating the account. */
+function GoogleSignupCompletion({ googleToken }) {
+  const [role, setRole] = useState('');
+  const [roleError, setRoleError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
+  const { login } = useAuth();
+
+  const profile = decodeJwtPayload(googleToken);
+
+  const handleSubmit = async () => {
+    if (!role) { setRoleError('Please select a role to finish signing up'); return; }
+    setSubmitting(true);
+    try {
+      const res = await api.post('/api/auth/google/finish-signup', { googleToken, role });
+      login(res.data.user);
+      toast.success('Account created! Welcome to CoFoundry 🚀');
+      router.push('/');
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: 'easeOut' }}
+      className="w-full max-w-lg"
+    >
+      <div className="bg-white rounded-2xl shadow-2xl shadow-black/20 border border-white/10 p-8">
+        <div className="text-center mb-7">
+          {profile?.image && (
+            <img src={profile.image} alt={profile.name} className="w-16 h-16 rounded-full mx-auto mb-4 object-cover" />
+          )}
+          <h1 className="text-2xl font-extrabold text-text">
+            {profile?.name ? `Welcome, ${profile.name.split(' ')[0]}!` : 'Almost there!'}
+          </h1>
+          <p className="text-sm text-text-muted mt-1">
+            {profile?.email ?? 'One last step'} — just pick a role to finish creating your account.
+          </p>
+        </div>
+
+        <RoleSelect
+          value={role}
+          onChange={(v) => { setRole(v); setRoleError(''); }}
+          error={roleError}
+        />
+
+        <motion.button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting}
+          whileHover={{ scale: submitting ? 1 : 1.01 }}
+          whileTap={{ scale: submitting ? 1 : 0.98 }}
+          className="w-full mt-6 flex items-center justify-center gap-2 py-3.5 rounded-xl gradient-brand text-white font-bold text-sm shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 transition-shadow disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {submitting ? (
+            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <><TbCheck /> Complete Signup</>
+          )}
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+function RegisterPageRouter() {
+  const searchParams = useSearchParams();
+  const googleToken  = searchParams.get('googleToken');
+  return googleToken ? <GoogleSignupCompletion googleToken={googleToken} /> : <RegisterForm />;
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterPageRouter />
+    </Suspense>
   );
 }
