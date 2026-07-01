@@ -2,17 +2,9 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { TbSearch, TbCircleCheck, TbClock, TbX, TbCoin } from 'react-icons/tb';
-
-const MOCK_TXN = [
-  { _id: 'txn_001', userEmail: 'aisha@nc.io',   userName: 'Aisha Rahman', plan: 'Premium Monthly', amount: 12.00, status: 'paid',    paidAt: '1 Jun 2026'  },
-  { _id: 'txn_002', userEmail: 'marcus@gg.io',  userName: 'Marcus Liu',   plan: 'Premium Annual',  amount: 99.00, status: 'paid',    paidAt: '28 May 2026' },
-  { _id: 'txn_003', userEmail: 'priya@mb.io',   userName: 'Priya Nair',   plan: 'Premium Monthly', amount: 12.00, status: 'paid',    paidAt: '20 May 2026' },
-  { _id: 'txn_004', userEmail: 'zara@ep.io',    userName: 'Zara Patel',   plan: 'Premium Monthly', amount: 12.00, status: 'pending', paidAt: '15 May 2026' },
-  { _id: 'txn_005', userEmail: 'kofi@fs.io',    userName: 'Kofi Asante',  plan: 'Premium Annual',  amount: 99.00, status: 'failed',  paidAt: '10 May 2026' },
-  { _id: 'txn_006', userEmail: 'elena@lf.io',   userName: 'Elena Vasil',  plan: 'Premium Monthly', amount: 12.00, status: 'paid',    paidAt: '2 May 2026'  },
-  { _id: 'txn_007', userEmail: 'sam@forge.io',  userName: 'Sam Okafor',   plan: 'Premium Annual',  amount: 99.00, status: 'paid',    paidAt: '28 Apr 2026' },
-];
+import api from '@/lib/axios';
 
 const STATUS_STYLES = {
   paid:    'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -25,36 +17,55 @@ const STATUS_ICON = {
   failed:  <TbX />,
 };
 
-const totalRevenue = MOCK_TXN.filter(t => t.status === 'paid').reduce((a, t) => a + t.amount, 0);
-
 export default function AdminTransactionsPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
 
-  const filtered = MOCK_TXN.filter((t) => {
-    const matchSearch = t.userEmail.toLowerCase().includes(search.toLowerCase()) ||
-                        t.userName.toLowerCase().includes(search.toLowerCase());
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-transactions'],
+    queryFn:  () => api.get('/api/admin/transactions').then((r) => r.data),
+  });
+
+  const payments     = data?.payments ?? [];
+  const totalRevenue = data?.totalRevenue ?? 0;
+
+  const filtered = payments.filter((t) => {
+    const name  = t.userId?.name  ?? '';
+    const email = t.userId?.email ?? t.userEmail ?? '';
+    const matchSearch = name.toLowerCase().includes(search.toLowerCase()) ||
+                        email.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === 'all' || t.status === filter;
     return matchSearch && matchFilter;
   });
+
+  const paidCount   = payments.filter((t) => t.status === 'paid').length;
+  const otherCount  = payments.filter((t) => t.status !== 'paid').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <span className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-extrabold text-text">Transactions</h1>
         <p className="text-text-muted text-sm mt-1">
-          {MOCK_TXN.filter(t => t.status === 'paid').length} successful payments · Total revenue: <span className="font-bold text-success">${totalRevenue.toFixed(2)}</span>
+          {paidCount} successful payments · Total revenue:{' '}
+          <span className="font-bold text-success">${Number(totalRevenue).toFixed(2)}</span>
         </p>
       </motion.div>
 
-      {/* Revenue summary */}
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Revenue',    value: `$${totalRevenue.toFixed(2)}`,                       color: 'bg-success text-white', icon: TbCoin },
-          { label: 'Paid',             value: MOCK_TXN.filter(t => t.status === 'paid').length,    color: 'bg-white border border-border', icon: TbCircleCheck },
-          { label: 'Failed / Pending', value: MOCK_TXN.filter(t => t.status !== 'paid').length,   color: 'bg-white border border-border', icon: TbX },
-        ].map(({ label, value, color, icon: Icon }) => (
+          { label: 'Total Revenue',    value: `$${Number(totalRevenue).toFixed(2)}`, color: 'bg-success text-white' },
+          { label: 'Paid',             value: paidCount,                              color: 'bg-white border border-border' },
+          { label: 'Failed / Pending', value: otherCount,                            color: 'bg-white border border-border' },
+        ].map(({ label, value, color }) => (
           <div key={label} className={`rounded-2xl p-5 shadow-sm ${color}`}>
             <p className={`text-xs font-semibold mb-1 ${color.includes('bg-success') ? 'text-white/80' : 'text-text-muted'}`}>{label}</p>
             <p className={`text-2xl font-extrabold ${color.includes('bg-success') ? 'text-white' : 'text-text'}`}>{value}</p>
@@ -62,7 +73,6 @@ export default function AdminTransactionsPage() {
         ))}
       </motion.div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative">
           <TbSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-lg" />
@@ -86,7 +96,7 @@ export default function AdminTransactionsPage() {
           <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr className="border-b border-border bg-surface-alt text-left">
-                <th className="px-5 py-3 text-xs font-semibold text-text-muted">Transaction ID</th>
+                <th className="px-5 py-3 text-xs font-semibold text-text-muted">Transaction</th>
                 <th className="px-5 py-3 text-xs font-semibold text-text-muted">User</th>
                 <th className="px-5 py-3 text-xs font-semibold text-text-muted">Plan</th>
                 <th className="px-5 py-3 text-xs font-semibold text-text-muted">Amount</th>
@@ -97,19 +107,21 @@ export default function AdminTransactionsPage() {
             <tbody className="divide-y divide-border">
               {filtered.map((t) => (
                 <tr key={t._id} className="hover:bg-surface-alt transition-colors">
-                  <td className="px-5 py-3.5 font-mono text-xs text-text-muted">{t._id}</td>
+                  <td className="px-5 py-3.5 font-mono text-xs text-text-muted">{String(t._id).slice(-8)}</td>
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-text">{t.userName}</p>
-                    <p className="text-xs text-text-muted">{t.userEmail}</p>
+                    <p className="font-medium text-text">{t.userId?.name ?? '—'}</p>
+                    <p className="text-xs text-text-muted">{t.userId?.email ?? t.userEmail}</p>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-text-muted">{t.plan}</td>
-                  <td className="px-5 py-3.5 font-bold text-text">${t.amount.toFixed(2)}</td>
+                  <td className="px-5 py-3.5 text-xs text-text-muted capitalize">{t.plan}</td>
+                  <td className="px-5 py-3.5 font-bold text-text">${(t.amount / 100).toFixed(2)}</td>
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-semibold ${STATUS_STYLES[t.status]}`}>
                       {STATUS_ICON[t.status]} {t.status.charAt(0).toUpperCase() + t.status.slice(1)}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-text-muted">{t.paidAt}</td>
+                  <td className="px-5 py-3.5 text-xs text-text-muted">
+                    {t.paidAt ? new Date(t.paidAt).toLocaleDateString() : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

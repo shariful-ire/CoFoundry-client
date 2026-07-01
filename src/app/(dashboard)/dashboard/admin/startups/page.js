@@ -3,17 +3,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { TbSearch, TbCheck, TbTrash, TbX, TbClock } from 'react-icons/tb';
-
-const MOCK_STARTUPS = [
-  { _id: '1', startupName: 'NeuralCart',  founderEmail: 'aisha@nc.io',    industry: 'AI / E-Commerce', status: 'pending',  createdAt: '1 Jan 2026'  },
-  { _id: '2', startupName: 'GreenGrid',   founderEmail: 'marcus@gg.io',   industry: 'CleanTech',       status: 'approved', createdAt: '5 Jan 2026'  },
-  { _id: '3', startupName: 'MedBridge',   founderEmail: 'priya@mb.io',    industry: 'HealthTech',      status: 'approved', createdAt: '10 Jan 2026' },
-  { _id: '4', startupName: 'DevForge',    founderEmail: 'sam@df.io',      industry: 'DevTools',        status: 'pending',  createdAt: '12 Jan 2026' },
-  { _id: '5', startupName: 'EduPath',     founderEmail: 'zara@ep.io',     industry: 'EdTech',          status: 'rejected', createdAt: '15 Jan 2026' },
-  { _id: '6', startupName: 'FinStack',    founderEmail: 'kofi@fs.io',     industry: 'FinTech',         status: 'pending',  createdAt: '18 Jan 2026' },
-  { _id: '7', startupName: 'LogiFlow',    founderEmail: 'elena@lf.io',    industry: 'Logistics',       status: 'approved', createdAt: '20 Jan 2026' },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { TbSearch, TbCheck, TbTrash, TbX, TbClock, TbBan } from 'react-icons/tb';
+import api from '@/lib/axios';
 
 const STATUS_STYLES = {
   pending:  'bg-amber-50  text-amber-700  border-amber-200',
@@ -23,34 +15,58 @@ const STATUS_STYLES = {
 const STATUS_ICON = { pending: <TbClock />, approved: <TbCheck />, rejected: <TbX /> };
 
 export default function AdminStartupsPage() {
-  const [startups, setStartups] = useState(MOCK_STARTUPS);
-  const [search,   setSearch]   = useState('');
-  const [delId,    setDelId]    = useState(null);
+  const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [delId,  setDelId]  = useState(null);
 
-  const updateStatus = (id, status) => {
-    setStartups((prev) => prev.map((s) => s._id === id ? { ...s, status } : s));
-    toast.success(`Startup ${status}!`);
-    // TODO: PATCH /api/admin/startups/:id  { status }
-  };
+  const { data: startups = [], isLoading } = useQuery({
+    queryKey: ['admin-startups'],
+    queryFn:  () => api.get('/api/admin/startups').then((r) => r.data),
+  });
 
-  const handleRemove = (id) => {
-    setStartups((prev) => prev.filter((s) => s._id !== id));
-    setDelId(null);
-    toast.success('Startup removed.');
-    // TODO: DELETE /api/admin/startups/:id
-  };
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }) => api.patch(`/api/admin/startups/${id}`, { status }),
+    onSuccess: (_, { status }) => {
+      toast.success(`Startup ${status}!`);
+      qc.invalidateQueries({ queryKey: ['admin-startups'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+    onError: (err) => toast.error(err?.response?.data?.message ?? 'Update failed.'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/api/admin/startups/${id}`),
+    onSuccess: () => {
+      toast.success('Startup removed.');
+      setDelId(null);
+      qc.invalidateQueries({ queryKey: ['admin-startups'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+    onError: (err) => toast.error(err?.response?.data?.message ?? 'Delete failed.'),
+  });
 
   const filtered = startups.filter((s) =>
-    s.startupName.toLowerCase().includes(search.toLowerCase()) ||
-    s.founderEmail.toLowerCase().includes(search.toLowerCase())
+    s.startupName?.toLowerCase().includes(search.toLowerCase()) ||
+    s.founderEmail?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const pendingCount  = startups.filter((s) => s.status === 'pending').length;
+  const approvedCount = startups.filter((s) => s.status === 'approved').length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <span className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-extrabold text-text">Manage Startups</h1>
         <p className="text-text-muted text-sm mt-1">
-          {startups.filter(s => s.status === 'pending').length} pending approval · {startups.filter(s => s.status === 'approved').length} live
+          {pendingCount} pending approval · {approvedCount} live
         </p>
       </motion.div>
 
@@ -87,14 +103,23 @@ export default function AdminStartupsPage() {
                       {STATUS_ICON[s.status]} {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-text-muted">{s.createdAt}</td>
+                  <td className="px-5 py-3.5 text-xs text-text-muted">{new Date(s.createdAt).toLocaleDateString()}</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       {s.status !== 'approved' && (
                         <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                          onClick={() => updateStatus(s._id, 'approved')}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-50 transition-all">
+                          onClick={() => statusMutation.mutate({ id: s._id, status: 'approved' })}
+                          disabled={statusMutation.isPending}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-50 transition-all disabled:opacity-60">
                           <TbCheck /> Approve
+                        </motion.button>
+                      )}
+                      {s.status !== 'rejected' && (
+                        <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                          onClick={() => statusMutation.mutate({ id: s._id, status: 'rejected' })}
+                          disabled={statusMutation.isPending}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 transition-all disabled:opacity-60">
+                          <TbBan /> Reject
                         </motion.button>
                       )}
                       <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
@@ -112,7 +137,6 @@ export default function AdminStartupsPage() {
         {filtered.length === 0 && <p className="text-center text-sm text-text-muted py-12">No startups found.</p>}
       </motion.div>
 
-      {/* Delete modal */}
       <AnimatePresence>
         {delId && (
           <motion.div key="modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -127,8 +151,14 @@ export default function AdminStartupsPage() {
               <h3 className="font-bold text-text text-lg mb-1">Remove startup?</h3>
               <p className="text-sm text-text-muted mb-6">This will permanently remove the listing and all associated opportunities.</p>
               <div className="flex gap-3">
-                <button onClick={() => setDelId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-text-muted hover:border-brand-300 transition-all">Cancel</button>
-                <button onClick={() => handleRemove(delId)} className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:opacity-90">Remove</button>
+                <button onClick={() => setDelId(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-text-muted hover:border-brand-300 transition-all">
+                  Cancel
+                </button>
+                <button onClick={() => deleteMutation.mutate(delId)} disabled={deleteMutation.isPending}
+                  className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:opacity-90 disabled:opacity-60">
+                  {deleteMutation.isPending ? 'Removing…' : 'Remove'}
+                </button>
               </div>
             </motion.div>
           </motion.div>

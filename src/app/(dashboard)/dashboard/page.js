@@ -2,16 +2,23 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
-/* Redirect /dashboard → role-specific home. Role comes from auth later; stub uses founder. */
+const ROLE_REDIRECT = {
+  admin:        '/dashboard/admin',
+  founder:      '/dashboard/founder',
+  collaborator: '/dashboard/collaborator',
+};
+
 export default function DashboardRedirect() {
   const router = useRouter();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    // TODO: read real role from auth context and redirect accordingly
-    // e.g. if (role === 'admin') router.replace('/dashboard/admin')
-    router.replace('/dashboard/founder');
-  }, [router]);
+    if (loading) return;
+    if (user) router.replace(ROLE_REDIRECT[user.role] ?? '/dashboard/collaborator');
+    else router.replace('/login');
+  }, [user, loading, router]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">

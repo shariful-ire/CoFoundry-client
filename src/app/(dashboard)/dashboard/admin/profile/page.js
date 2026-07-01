@@ -8,12 +8,12 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
-import { TbCamera, TbX, TbCheck, TbUser, TbFileText } from 'react-icons/tb';
+import { TbCamera, TbCheck, TbUser, TbPhone, TbMail } from 'react-icons/tb';
 import api from '@/lib/axios';
 
 const schema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  bio:  z.string().max(300, 'Bio must be under 300 characters').optional(),
+  name:  z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().max(20, 'Phone number is too long').optional().or(z.literal('')),
 });
 
 async function uploadToImgBB(file) {
@@ -27,28 +27,23 @@ async function uploadToImgBB(file) {
   return json.data.url;
 }
 
-export default function CollaboratorProfilePage() {
+export default function AdminProfilePage() {
   const { user, refetch } = useAuth();
-  const [skills,       setSkills]       = useState([]);
-  const [skillInput,   setSkillInput]   = useState('');
   const [imagePreview, setImagePreview] = useState(null);
   const [imageUrl,     setImageUrl]     = useState('');
   const [uploading,    setUploading]    = useState(false);
   const fileRef = useRef(null);
 
-  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
   });
 
   useEffect(() => {
     if (user) {
-      reset({ name: user.name ?? '', bio: user.bio ?? '' });
-      setSkills(user.skills ?? []);
+      reset({ name: user.name ?? '', phone: user.phone ?? '' });
       if (user.image) setImagePreview(user.image);
     }
   }, [user, reset]);
-
-  const bioLen = watch('bio', '')?.length ?? 0;
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -66,15 +61,9 @@ export default function CollaboratorProfilePage() {
     } finally { setUploading(false); }
   };
 
-  const addSkill = () => {
-    const s = skillInput.trim();
-    if (s && !skills.includes(s) && skills.length < 10) { setSkills((p) => [...p, s]); setSkillInput(''); }
-  };
-
   const saveMutation = useMutation({
     mutationFn: (data) => api.patch('/api/users/profile', {
       ...data,
-      skills,
       ...(imageUrl && { image: imageUrl }),
     }),
     onSuccess: async () => {
@@ -88,7 +77,7 @@ export default function CollaboratorProfilePage() {
     <div className="max-w-2xl space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-extrabold text-text">My Profile</h1>
-        <p className="text-text-muted text-sm mt-1">Keep your profile updated so founders know what you bring to the table.</p>
+        <p className="text-text-muted text-sm mt-1">Update your admin account details.</p>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -129,38 +118,23 @@ export default function CollaboratorProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text mb-1.5">Bio</label>
+            <label className="block text-xs font-semibold text-text mb-1.5">Contact Number</label>
             <div className="relative">
-              <TbFileText className="absolute left-3.5 top-3.5 text-text-muted text-lg" />
-              <textarea rows={3} {...register('bio')} placeholder="Tell founders a bit about yourself…"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-border text-sm text-text bg-surface-alt outline-none transition-all focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 resize-none" />
+              <TbPhone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-lg" />
+              <input type="tel" {...register('phone')} placeholder="+1 555 123 4567"
+                className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm text-text bg-surface-alt outline-none transition-all focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 ${errors.phone ? 'border-danger' : 'border-border'}`} />
             </div>
-            <div className="flex justify-end mt-1">
-              <span className={`text-xs ${bioLen > 270 ? 'text-danger' : 'text-text-muted'}`}>{bioLen}/300</span>
-            </div>
+            {errors.phone && <p className="text-xs text-danger mt-1.5">{errors.phone.message}</p>}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text mb-1.5">
-              Skills <span className="font-normal text-text-muted">(press Enter to add · max 10)</span>
-            </label>
-            <div className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface-alt focus-within:bg-white focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition-all">
-              <div className="flex flex-wrap gap-1.5 mb-1.5">
-                {skills.map((s) => (
-                  <span key={s} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-medium">
-                    {s}
-                    <button type="button" onClick={() => setSkills((p) => p.filter((x) => x !== s))}
-                      className="text-brand-400 hover:text-danger"><TbX className="text-xs" /></button>
-                  </span>
-                ))}
-              </div>
-              <input type="text" value={skillInput} onChange={(e) => setSkillInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addSkill(); } }}
-                onBlur={addSkill}
-                placeholder={skills.length < 10 ? 'Add a skill…' : 'Max 10 skills reached'}
-                disabled={skills.length >= 10}
-                className="w-full bg-transparent text-sm text-text outline-none placeholder:text-text-muted/60" />
+            <label className="block text-xs font-semibold text-text mb-1.5">Email</label>
+            <div className="relative">
+              <TbMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-lg" />
+              <input type="email" value={user?.email ?? ''} disabled readOnly
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-border text-sm text-text-muted bg-surface-alt/60 outline-none cursor-not-allowed" />
             </div>
+            <p className="text-xs text-text-muted mt-1.5">Your login email can't be changed.</p>
           </div>
 
           <motion.button type="submit" disabled={saveMutation.isPending || uploading}

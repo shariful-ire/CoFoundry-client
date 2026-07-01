@@ -1,24 +1,28 @@
 'use client';
 
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { useAuth } from '@/context/AuthContext';
 
-function useRole() {
-  const pathname = usePathname();
-  if (pathname.startsWith('/dashboard/admin'))        return 'admin';
-  if (pathname.startsWith('/dashboard/collaborator')) return 'collaborator';
-  return 'founder';
-}
-
 export default function DashboardLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const role = useRole();
   const { user, loading, logout } = useAuth();
+  const pathname = usePathname();
+  const router   = useRouter();
 
-  if (loading) {
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { router.replace('/login'); return; }
+    // Redirect if user is on wrong role's dashboard
+    const expected = `/dashboard/${user.role}`;
+    if (!pathname.startsWith(expected) && pathname !== '/dashboard') {
+      router.replace(expected);
+    }
+  }, [loading, user, pathname, router]);
+
+  if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-surface-alt">
         <span className="w-8 h-8 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
@@ -26,12 +30,12 @@ export default function DashboardLayout({ children }) {
     );
   }
 
-  const activeUser = user ?? { name: 'User', email: '', image: null };
+  const activeUser = user;
 
   return (
     <div className="flex min-h-screen bg-surface-alt">
       <DashboardSidebar
-        role={role}
+        role={user.role}
         user={activeUser}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
