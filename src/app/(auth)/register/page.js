@@ -9,12 +9,12 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   TbUser, TbMail, TbLock, TbEye, TbEyeOff,
-  TbArrowRight, TbBrandGoogle, TbCamera, TbRocket,
-  TbBriefcase, TbCheck,
+  TbArrowRight, TbBrandGoogle, TbCamera,
 } from 'react-icons/tb';
 import toast from 'react-hot-toast';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
+import RoleSelect from '@/components/RoleSelect';
 
 /* ── Zod schema ── */
 const schema = z
@@ -66,39 +66,6 @@ async function uploadToImgBB(file) {
   return json.data.url;
 }
 
-/* ── Role option ── */
-function RoleCard({ value, label, icon: Icon, description, selected, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-center cursor-pointer ${
-        selected
-          ? 'border-brand-500 bg-brand-50'
-          : 'border-border bg-surface-alt hover:border-brand-200 hover:bg-white'
-      }`}
-    >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selected ? 'gradient-brand' : 'bg-white border border-border'}`}>
-        <Icon className={`text-xl ${selected ? 'text-white' : 'text-text-muted'}`} />
-      </div>
-      <div>
-        <p className={`text-sm font-bold ${selected ? 'text-brand-700' : 'text-text'}`}>{label}</p>
-        <p className="text-xs text-text-muted leading-tight mt-0.5">{description}</p>
-      </div>
-      {selected && (
-        <span className="absolute top-2 right-2">
-          <TbCheck className="text-brand-500 text-sm" />
-        </span>
-      )}
-    </button>
-  );
-}
-
-const ROLE_REDIRECT = {
-  founder:      '/dashboard/founder',
-  collaborator: '/dashboard/collaborator',
-};
-
 export default function RegisterPage() {
   const [showPass, setShowPass]        = useState(false);
   const [showConfirm, setShowConfirm]  = useState(false);
@@ -123,7 +90,8 @@ export default function RegisterPage() {
   const strength = getStrength(password);
 
   const handleGoogle = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/auth/google`;
+    if (!role) { toast.error('Please select whether you are a Founder or Collaborator first'); return; }
+    window.location.href = `/api/auth/google?role=${role}`; // Next.js rewrite proxies to server
   };
 
   /* Image selection & upload */
@@ -164,7 +132,7 @@ export default function RegisterPage() {
       });
       login(res.data.user);
       toast.success('Account created! Welcome to CoFoundry 🚀');
-      router.push(ROLE_REDIRECT[res.data.user.role] ?? '/dashboard');
+      router.push('/');
     } catch (err) {
       toast.error(err?.response?.data?.message ?? 'Registration failed. Please try again.');
     } finally {
@@ -187,6 +155,15 @@ export default function RegisterPage() {
           <p className="text-sm text-text-muted mt-1">
             Join CoFoundry and start building your dream team
           </p>
+        </div>
+
+        {/* Role selection — required before either sign-up method */}
+        <div className="mb-6">
+          <RoleSelect
+            value={role}
+            onChange={(v) => setValue('role', v, { shouldValidate: true })}
+            error={errors.role?.message}
+          />
         </div>
 
         {/* Google */}
@@ -238,34 +215,6 @@ export default function RegisterPage() {
               className="hidden"
               onChange={handleImageChange}
             />
-          </div>
-
-          {/* Role selection */}
-          <div>
-            <label className="block text-xs font-semibold text-text mb-2">
-              I am joining as a…
-            </label>
-            <div className="flex gap-3 relative">
-              <RoleCard
-                value="founder"
-                label="Founder"
-                icon={TbRocket}
-                description="I'm building a startup and need team members"
-                selected={role === 'founder'}
-                onClick={() => setValue('role', 'founder', { shouldValidate: true })}
-              />
-              <RoleCard
-                value="collaborator"
-                label="Collaborator"
-                icon={TbBriefcase}
-                description="I want to join an early-stage startup"
-                selected={role === 'collaborator'}
-                onClick={() => setValue('role', 'collaborator', { shouldValidate: true })}
-              />
-            </div>
-            {errors.role && (
-              <p className="text-xs text-danger mt-1.5">{errors.role.message}</p>
-            )}
           </div>
 
           {/* Name */}

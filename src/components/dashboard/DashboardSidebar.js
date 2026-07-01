@@ -29,6 +29,7 @@ const NAV = {
     { label: 'Manage Users',     href: '/dashboard/admin/users',        icon: TbUsers },
     { label: 'Manage Startups',  href: '/dashboard/admin/startups',     icon: TbBuildingSkyscraper },
     { label: 'Transactions',     href: '/dashboard/admin/transactions', icon: TbCoin },
+    { label: 'Profile',          href: '/dashboard/admin/profile',      icon: TbUser },
   ],
 };
 

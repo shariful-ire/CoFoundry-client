@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   TbMail, TbLock, TbEye, TbEyeOff, TbArrowRight, TbBrandGoogle,
@@ -11,25 +11,26 @@ import {
 import toast from 'react-hot-toast';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
+import RoleSelect from '@/components/RoleSelect';
 
-const ROLE_REDIRECT = {
-  admin:        '/dashboard/admin',
-  founder:      '/dashboard/founder',
-  collaborator: '/dashboard/collaborator',
-};
+function GoogleErrorHandler() {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const error  = searchParams.get('error');
+    const detail = searchParams.get('detail');
+    if (error === 'blocked')            toast.error('Your account has been suspended.');
+    else if (error === 'google_failed') toast.error(`Google sign-in failed: ${detail ?? 'unknown error'}`);
+  }, [searchParams]);
+  return null;
+}
 
 export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading,  setLoading]  = useState(false);
-  const router       = useRouter();
-  const searchParams = useSearchParams();
+  const [googleRole, setGoogleRole] = useState('');
+  const [googleRoleError, setGoogleRoleError] = useState('');
+  const router = useRouter();
   const { login } = useAuth();
-
-  useEffect(() => {
-    const error = searchParams.get('error');
-    if (error === 'blocked')          toast.error('Your account has been suspended.');
-    else if (error === 'google_failed') toast.error('Google sign-in failed. Please try again.');
-  }, [searchParams]);
 
   const {
     register,
@@ -46,7 +47,7 @@ export default function LoginPage() {
       });
       login(res.data.user);
       toast.success('Welcome back!');
-      router.push(ROLE_REDIRECT[res.data.user.role] ?? '/dashboard');
+      router.push('/');
     } catch (err) {
       toast.error(err?.response?.data?.message ?? 'Login failed. Please try again.');
     } finally {
@@ -55,7 +56,8 @@ export default function LoginPage() {
   };
 
   const handleGoogle = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/api/auth/google`;
+    if (!googleRole) { setGoogleRoleError('Please select a role to continue with Google'); return; }
+    window.location.href = `/api/auth/google?role=${googleRole}`; // Next.js rewrite proxies to server
   };
 
   return (
@@ -66,6 +68,9 @@ export default function LoginPage() {
       className="w-full max-w-md"
     >
       <div className="bg-white rounded-2xl shadow-2xl shadow-black/20 border border-white/10 p-8">
+        <Suspense>
+          <GoogleErrorHandler />
+        </Suspense>
 
         {/* Heading */}
         <div className="text-center mb-8">
@@ -73,6 +78,16 @@ export default function LoginPage() {
           <p className="text-sm text-text-muted mt-1">
             Sign in to your CoFoundry account
           </p>
+        </div>
+
+        {/* Role selection — only needed if Google creates a brand-new account.
+            Existing accounts keep their original role regardless of this pick. */}
+        <div className="mb-4">
+          <RoleSelect
+            value={googleRole}
+            onChange={(v) => { setGoogleRole(v); setGoogleRoleError(''); }}
+            error={googleRoleError}
+          />
         </div>
 
         {/* Google button */}
