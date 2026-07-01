@@ -6,16 +6,17 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { TbCircleCheck, TbRocket, TbArrowRight } from 'react-icons/tb';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/context/AuthContext';
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const { refetch } = useAuth();
 
   useEffect(() => {
     if (sessionId) {
-      // TODO: POST /api/payment/verify  { sessionId }
-      // Server verifies with Stripe, marks user as premium, clears free-limit counter
       toast.success('Premium activated!');
+      refetch();
     }
   }, [sessionId]);
 
