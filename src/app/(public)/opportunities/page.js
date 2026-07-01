@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +10,8 @@ import {
 } from 'react-icons/tb';
 import api from '@/lib/axios';
 
-const WORK_TYPES = ['All', 'Remote', 'Hybrid', 'On-site'];
+const WORK_TYPES = ['Remote', 'Hybrid', 'On-site'];
+const INDUSTRIES  = ['AI / E-Commerce', 'CleanTech', 'HealthTech', 'FinTech', 'EdTech', 'DevTools', 'AgriTech', 'Logistics', 'LegalTech', 'Other'];
 const PAGE_LIMIT  = 6;
 
 const WORK_BADGE = {
@@ -25,7 +26,8 @@ const cardVariant = {
 };
 
 function OpportunityCard({ opp }) {
-  const daysLeft = Math.ceil((new Date(opp.deadline) - Date.now()) / 864e5);
+  const [now] = useState(() => Date.now());
+  const daysLeft = Math.ceil((new Date(opp.deadline) - now) / 864e5);
   const urgent   = daysLeft <= 7;
 
   return (
@@ -85,15 +87,24 @@ function FilterPill({ label, active, onClick }) {
 }
 
 export default function BrowseOpportunitiesPage() {
-  const [search,   setSearch]   = useState('');
-  const [workType, setWorkType] = useState('All');
-  const [page,     setPage]     = useState(1);
+  const [search,       setSearch]       = useState('');
+  const [debounced,    setDebounced]    = useState('');
+  const [workTypes,    setWorkTypes]    = useState([]);
+  const [industries,   setIndustries]   = useState([]);
+  const [page,         setPage]         = useState(1);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const params = new URLSearchParams({ page: String(page), limit: String(PAGE_LIMIT) });
-  if (workType !== 'All') params.set('workType', workType);
+  if (workTypes.length)  params.set('workType', workTypes.join(','));
+  if (industries.length) params.set('industry', industries.join(','));
+  if (debounced)          params.set('search', debounced);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['opportunities', workType, page],
+    queryKey: ['opportunities', workTypes, industries, debounced, page],
     queryFn:  () => api.get(`/api/opportunities?${params}`).then((r) => r.data),
     keepPreviousData: true,
   });
@@ -102,14 +113,17 @@ export default function BrowseOpportunitiesPage() {
   const totalCount = data?.totalCount ?? 0;
   const totalPages = data?.totalPages ?? 1;
 
-  const filtered = search
-    ? opps.filter((o) =>
-        o.roleTitle.toLowerCase().includes(search.toLowerCase()) ||
-        o.requiredSkills?.some((s) => s.toLowerCase().includes(search.toLowerCase())))
-    : opps;
+  const toggleWorkType = (w) => {
+    setWorkTypes((p) => (p.includes(w) ? p.filter((x) => x !== w) : [...p, w]));
+    setPage(1);
+  };
+  const toggleIndustry = (i) => {
+    setIndustries((p) => (p.includes(i) ? p.filter((x) => x !== i) : [...p, i]));
+    setPage(1);
+  };
 
-  const hasFilters = search || workType !== 'All';
-  const clearAll   = () => { setSearch(''); setWorkType('All'); setPage(1); };
+  const hasFilters = search || workTypes.length > 0 || industries.length > 0;
+  const clearAll   = () => { setSearch(''); setWorkTypes([]); setIndustries([]); setPage(1); };
   const resetPage  = () => setPage(1);
 
   return (
@@ -142,11 +156,19 @@ export default function BrowseOpportunitiesPage() {
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.18, duration: 0.4 }}
             className="mt-5 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-text-muted w-20 shrink-0">Work Type</span>
+            <div className="flex items-start gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-text-muted w-20 shrink-0 pt-1.5">Work Type</span>
               <div className="flex flex-wrap gap-2">
                 {WORK_TYPES.map((w) => (
-                  <FilterPill key={w} label={w} active={workType === w} onClick={() => { setWorkType(w); resetPage(); }} />
+                  <FilterPill key={w} label={w} active={workTypes.includes(w)} onClick={() => toggleWorkType(w)} />
+                ))}
+              </div>
+            </div>
+            <div className="flex items-start gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-text-muted w-20 shrink-0 pt-1.5">Industry</span>
+              <div className="flex flex-wrap gap-2">
+                {INDUSTRIES.map((i) => (
+                  <FilterPill key={i} label={i} active={industries.includes(i)} onClick={() => toggleIndustry(i)} />
                 ))}
               </div>
             </div>
@@ -163,7 +185,7 @@ export default function BrowseOpportunitiesPage() {
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-text-muted">
             {isLoading ? 'Loading…' : (
-              <>Showing <span className="font-semibold text-text">{filtered.length}</span> of{' '}
+              <>Showing <span className="font-semibold text-text">{opps.length}</span> of{' '}
               <span className="font-semibold text-text">{totalCount}</span> results</>
             )}
           </p>
@@ -175,11 +197,11 @@ export default function BrowseOpportunitiesPage() {
           </div>
         ) : (
           <AnimatePresence mode="wait">
-            {filtered.length > 0 ? (
-              <motion.div key={`page-${page}-${workType}`} initial="hidden" animate="show"
+            {opps.length > 0 ? (
+              <motion.div key={`page-${page}`} initial="hidden" animate="show"
                 variants={{ show: { transition: { staggerChildren: 0.07 } } }}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filtered.map((opp) => <OpportunityCard key={opp._id} opp={opp} />)}
+                {opps.map((opp) => <OpportunityCard key={opp._id} opp={opp} />)}
               </motion.div>
             ) : (
               <motion.div key="empty" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}

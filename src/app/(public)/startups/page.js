@@ -57,8 +57,10 @@ function StartupCard({ s }) {
       <div className={`h-1.5 w-full bg-gradient-to-r ${gradient}`} />
       <div className="p-6 flex flex-col flex-1">
         <div className="flex items-center gap-4 mb-4">
-          <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-base shadow-md shrink-0`}>
-            {initials}
+          <div className={`w-12 h-12 rounded-xl overflow-hidden bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-base shadow-md shrink-0`}>
+            {s.logo
+              ? <img src={s.logo} alt={s.startupName} className="w-full h-full object-cover" />
+              : initials}
           </div>
           <div className="min-w-0">
             <h3 className="font-bold text-text text-base truncate group-hover:text-brand-600 transition-colors">

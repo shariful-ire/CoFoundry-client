@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,10 +8,21 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  TbRocket, TbBuildingSkyscraper, TbFileText,
+  TbRocket, TbBuildingSkyscraper, TbFileText, TbCamera,
   TbArrowRight, TbEdit, TbTrash, TbCheck, TbClock,
 } from 'react-icons/tb';
 import api from '@/lib/axios';
+
+async function uploadToImgBB(file) {
+  const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
+  if (!apiKey) throw new Error('ImgBB key not set');
+  const form = new FormData();
+  form.append('image', file);
+  const res  = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, { method: 'POST', body: form });
+  const json = await res.json();
+  if (!json.success) throw new Error('Upload failed');
+  return json.data.url;
+}
 
 const schema = z.object({
   startupName:  z.string().min(2, 'Name must be at least 2 characters').max(60),
@@ -31,6 +42,10 @@ const STATUS_STYLE = {
 
 export default function MyStartupPage() {
   const [editing, setEditing] = useState(false);
+  const [logoOverride, setLogoOverride] = useState(null); // set only once the user picks a new file
+  const [logoUrl,       setLogoUrl]     = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileRef = useRef(null);
   const qc = useQueryClient();
 
   const { data: startup, isLoading } = useQuery({
@@ -51,13 +66,36 @@ export default function MyStartupPage() {
   });
 
   useEffect(() => {
-    if (startup) reset({ startupName: startup.startupName, industry: startup.industry, fundingStage: startup.fundingStage, description: startup.description });
+    if (startup) {
+      reset({ startupName: startup.startupName, industry: startup.industry, fundingStage: startup.fundingStage, description: startup.description });
+    }
   }, [startup, reset]);
 
+  const logoPreview = logoOverride ?? startup?.logo ?? null;
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('Max 2 MB'); return; }
+    setLogoOverride(URL.createObjectURL(file));
+    setUploadingLogo(true);
+    try {
+      const url = await uploadToImgBB(file);
+      setLogoUrl(url);
+      toast.success('Logo ready — save to apply.');
+    } catch {
+      toast.error('Upload failed');
+      setLogoOverride(null);
+    } finally { setUploadingLogo(false); }
+  };
+
   const saveMutation = useMutation({
-    mutationFn: (data) => startup
-      ? api.put(`/api/startups/${startup._id}`, data)
-      : api.post('/api/startups', data),
+    mutationFn: (data) => {
+      const payload = { ...data, ...(logoUrl && { logo: logoUrl }) };
+      return startup
+        ? api.put(`/api/startups/${startup._id}`, payload)
+        : api.post('/api/startups', payload);
+    },
     onSuccess: () => {
       toast.success(startup ? 'Startup updated!' : 'Startup submitted for review!');
       setEditing(false);
@@ -117,6 +155,18 @@ export default function MyStartupPage() {
             </div>
           </div>
 
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-xl border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
+              {startup.logo
+                ? <img src={startup.logo} alt={startup.startupName} className="w-full h-full object-cover" />
+                : <TbRocket className="text-2xl text-text-muted" />}
+            </div>
+            <div>
+              <p className="text-xs text-text-muted">Logo</p>
+              <p className="text-sm font-semibold text-text">{startup.logo ? 'Uploaded' : 'Not set'}</p>
+            </div>
+          </div>
+
           {[
             { icon: TbRocket,            label: 'Startup Name',   value: startup.startupName  },
             { icon: TbBuildingSkyscraper, label: 'Industry',      value: startup.industry     },
@@ -154,6 +204,29 @@ export default function MyStartupPage() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="bg-white rounded-2xl border border-border shadow-sm p-6">
         <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} noValidate className="space-y-5">
+
+          <div className="flex items-center gap-5">
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="relative w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-brand-400 bg-surface-alt flex items-center justify-center overflow-hidden group transition-all">
+              {logoPreview
+                ? <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+                : <TbCamera className="text-2xl text-text-muted group-hover:text-brand-500 transition-colors" />}
+              {uploadingLogo && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                  <span className="w-5 h-5 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+                </div>
+              )}
+            </button>
+            <div>
+              <p className="text-sm font-semibold text-text">Startup logo</p>
+              <p className="text-xs text-text-muted mt-0.5">JPG or PNG · Max 2 MB</p>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="mt-2 text-xs text-brand-600 font-semibold hover:underline">
+                {logoPreview ? 'Change logo' : 'Upload logo'}
+              </button>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-text mb-1.5">Startup Name <span className="text-danger">*</span></label>
