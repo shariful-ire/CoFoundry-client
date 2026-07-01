@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 import { TbCrown, TbCheck, TbArrowLeft, TbLock } from 'react-icons/tb';
 import Link from 'next/link';
 import api from '@/lib/axios';
@@ -37,18 +38,26 @@ const FEATURES = [
 export default function PremiumUpgradePage() {
   const [selected, setSelected] = useState('annual');
   const [loading,  setLoading]  = useState(false);
+  const router = useRouter();
 
   const handleUpgrade = async () => {
     setLoading(true);
     try {
-      // TODO: POST /api/payment/create-checkout  { plan: selected }
-      // Returns { url: 'https://checkout.stripe.com/...' }
       const { data } = await api.post('/api/payment/create-checkout', { plan: selected });
       window.location.href = data.url;
+      return;
     } catch {
-      // Dev fallback — server not yet running
-      toast.error('Server not connected yet. Stripe will be wired when the server is ready.');
-    } finally {
+      // Real Stripe Checkout isn't reachable (no live keys configured yet) —
+      // fall back to a sandbox activation so the upgrade flow still works
+      // end-to-end for demo purposes.
+    }
+
+    try {
+      const { data } = await api.post('/api/payment/mock-checkout', { plan: selected });
+      toast.success('Sandbox mode — Stripe keys not configured, activated without a real charge.');
+      router.push(`/payment/success?session_id=${data.sessionId}`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? 'Upgrade failed. Please try again.');
       setLoading(false);
     }
   };

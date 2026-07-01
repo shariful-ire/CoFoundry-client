@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import {
@@ -10,6 +11,7 @@ import {
   TbCoin,
   TbBolt,
 } from 'react-icons/tb';
+import { useAuth } from '@/context/AuthContext';
 
 const FEATURES = [
   {
@@ -81,6 +83,7 @@ const item = {
 export default function WhyCoFoundry() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-80px' });
+  const { user } = useAuth();
 
   return (
     <section id="why" className="py-20 px-4 bg-surface-alt">
@@ -158,13 +161,13 @@ export default function WhyCoFoundry() {
               CoFoundry. It&apos;s free to get started.
             </p>
           </div>
-          <a
-            href="/register"
+          <Link
+            href={user ? '/dashboard' : '/register'}
             className="shrink-0 inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-white text-brand-700 font-bold text-sm shadow-xl hover:shadow-2xl hover:opacity-95 transition-all"
           >
             <TbRocket />
-            Start for Free
-          </a>
+            {user ? 'Go to Dashboard' : 'Start for Free'}
+          </Link>
         </motion.div>
       </div>
     </section>

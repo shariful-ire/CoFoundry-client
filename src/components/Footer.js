@@ -1,19 +1,19 @@
+'use client';
+
 import Link from 'next/link';
 import { TbRocket } from 'react-icons/tb';
 import {
   FaXTwitter,
   FaLinkedinIn,
   FaGithub,
-  FaDiscord,
 } from 'react-icons/fa6';
 import { HiOutlineMail, HiOutlineLocationMarker } from 'react-icons/hi';
+import { useAuth } from '@/context/AuthContext';
 
-const quickLinks = [
+const baseQuickLinks = [
   { label: 'Home', href: '/' },
   { label: 'Browse Startups', href: '/startups' },
   { label: 'Opportunities', href: '/opportunities' },
-  { label: 'Login', href: '/login' },
-  { label: 'Get Started', href: '/register' },
 ];
 
 const exploreLinks = [
@@ -24,14 +24,20 @@ const exploreLinks = [
 ];
 
 const socialLinks = [
-  { icon: FaXTwitter, label: 'Twitter / X', href: '#' },
-  { icon: FaLinkedinIn, label: 'LinkedIn', href: '#' },
-  { icon: FaGithub, label: 'GitHub', href: '#' },
-  { icon: FaDiscord, label: 'Discord', href: '#' },
+  { icon: FaGithub, label: 'GitHub', href: 'https://github.com/shariful-ire' },
+  { icon: FaLinkedinIn, label: 'LinkedIn', href: 'https://www.linkedin.com/in/shariful-ire' },
+  { icon: FaXTwitter, label: 'Twitter / X', href: 'https://x.com/shariful_ire' },
 ];
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const { user } = useAuth();
+
+  // Match the Navbar: logged-in users get Dashboard, not Login/Get Started
+  // (which would just bounce them back to Home since they can't re-register).
+  const quickLinks = user
+    ? [...baseQuickLinks, { label: 'Dashboard', href: '/dashboard' }]
+    : [...baseQuickLinks, { label: 'Login', href: '/login' }, { label: 'Get Started', href: '/register' }];
 
   return (
     <footer className="bg-brand-950 text-white mt-auto">
@@ -60,6 +66,8 @@ export default function Footer() {
                 <a
                   key={label}
                   href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   aria-label={label}
                   className="w-9 h-9 rounded-lg bg-brand-800 hover:bg-brand-600 flex items-center justify-center transition-colors duration-200"
                 >
@@ -135,13 +143,13 @@ export default function Footer() {
             {/* Mini CTA */}
             <div className="mt-8 p-4 rounded-xl bg-brand-900 border border-brand-800">
               <p className="text-xs text-brand-300 mb-3 leading-relaxed">
-                Ready to find your co-founder?
+                {user ? 'Ready to grow your team?' : 'Ready to find your co-founder?'}
               </p>
               <Link
-                href="/register"
+                href={user ? '/dashboard' : '/register'}
                 className="inline-block w-full text-center text-xs font-semibold py-2 px-4 rounded-lg gradient-brand text-white hover:opacity-90 transition-opacity"
               >
-                Join for Free →
+                {user ? 'Go to Dashboard →' : 'Join for Free →'}
               </Link>
             </div>
           </div>

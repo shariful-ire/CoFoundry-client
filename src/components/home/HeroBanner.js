@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { TbRocket, TbUsers, TbBriefcase, TbArrowRight } from 'react-icons/tb';
 import { HiSparkles } from 'react-icons/hi2';
+import { useAuth } from '@/context/AuthContext';
 
 const stats = [
   { icon: TbRocket,    value: '500+',  label: 'Startups Listed'   },
@@ -22,6 +23,8 @@ const stagger = {
 };
 
 export default function HeroBanner() {
+  const { user } = useAuth();
+
   return (
     <section className="relative overflow-hidden gradient-hero min-h-[92vh] flex flex-col items-center justify-center px-4">
 
@@ -88,11 +91,11 @@ export default function HeroBanner() {
         >
           <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
             <Link
-              href="/register"
+              href={user ? '/dashboard' : '/register'}
               className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white text-brand-700 font-bold text-base shadow-xl shadow-black/20 hover:shadow-2xl hover:shadow-black/30 transition-shadow"
             >
               <TbRocket className="text-lg" />
-              Get Started Free
+              {user ? 'Go to Dashboard' : 'Get Started Free'}
             </Link>
           </motion.div>
 
