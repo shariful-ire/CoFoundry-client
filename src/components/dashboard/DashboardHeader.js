@@ -18,6 +18,9 @@ function useBreadcrumb() {
 
 export default function DashboardHeader({ user, onMenuClick }) {
   const crumbs = useBreadcrumb();
+  const profileHref = user?.role === 'collaborator' ? '/dashboard/collaborator/profile'
+    : user?.role === 'founder' ? '/dashboard/founder/startup'
+    : '/dashboard';
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-border">
@@ -61,7 +64,7 @@ export default function DashboardHeader({ user, onMenuClick }) {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-500" />
           </motion.button>
 
-          <Link href="/profile">
+          <Link href={profileHref}>
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center"

@@ -21,6 +21,9 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
   const { user, logout } = useAuth();
+  const profileHref = user?.role === 'collaborator' ? '/dashboard/collaborator/profile'
+    : user?.role === 'founder' ? '/dashboard/founder/startup'
+    : '/dashboard';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -99,7 +102,7 @@ export default function Navbar() {
                 >
                   Dashboard
                 </Link>
-                <Link href="/profile">
+                <Link href={profileHref}>
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center"
@@ -214,12 +217,12 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                     <Link
-                      href="/profile"
+                      href={profileHref}
                       className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-text-muted hover:bg-surface-alt"
                     >
                       Profile
                     </Link>
-                    <button className="w-full text-left px-4 py-3 rounded-xl text-sm font-medium text-danger hover:bg-danger-light transition-colors">
+                    <button onClick={logout} className="w-full text-left px-4 py-3 rounded-xl text-sm font-medium text-danger hover:bg-danger-light transition-colors">
                       Logout
                     </button>
                   </>

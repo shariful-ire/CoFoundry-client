@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/axios';
 
 const AuthContext = createContext(null);
@@ -8,14 +8,14 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const loginCalled = useRef(false); // prevents fetchSession from overwriting explicit login()
 
   const fetchSession = useCallback(async () => {
     try {
-      // TODO: GET /api/auth/me — returns { _id, name, email, role, image, isPremium }
       const { data } = await api.get('/api/auth/me');
-      setUser(data);
+      if (!loginCalled.current) setUser(data);
     } catch {
-      setUser(null);
+      if (!loginCalled.current) setUser(null);
     } finally {
       setLoading(false);
     }
@@ -25,11 +25,15 @@ export function AuthProvider({ children }) {
     fetchSession();
   }, [fetchSession]);
 
-  const login = (userData) => setUser(userData);
+  const login = useCallback((userData) => {
+    loginCalled.current = true;
+    setUser(userData);
+    setLoading(false);
+  }, []);
 
   const logout = async () => {
+    loginCalled.current = false;
     try {
-      // TODO: POST /api/auth/signout — clears HTTPOnly cookie server-side
       await api.post('/api/auth/signout');
     } catch { /* ignore */ }
     setUser(null);
