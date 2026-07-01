@@ -103,7 +103,7 @@ export default function WhyCoFoundry() {
           </h2>
           <p className="mt-4 text-base text-text-muted max-w-xl mx-auto">
             We built CoFoundry because finding the right early team member
-            shouldn't be harder than building the product itself.
+            shouldn&apos;t be harder than building the product itself.
           </p>
         </motion.div>
 
@@ -155,7 +155,7 @@ export default function WhyCoFoundry() {
             </h3>
             <p className="text-brand-200 text-sm max-w-md">
               Join thousands of founders and collaborators already building on
-              CoFoundry. It's free to get started.
+              CoFoundry. It&apos;s free to get started.
             </p>
           </div>
           <a

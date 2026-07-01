@@ -41,8 +41,8 @@ export default function HeroBanner() {
       >
         {/* Badge */}
         <motion.div variants={fadeUp} className="flex justify-center mb-6">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-sm text-brand-200 font-medium">
-            <HiSparkles className="text-brand-300" />
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-sm text-brand-200 font-medium my-2">
+            <HiSparkles className="text-brand-300 " />
             Where great teams are born
           </span>
         </motion.div>

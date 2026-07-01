@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -46,6 +47,7 @@ const fadeUp = {
 
 export default function StartupDetailPage() {
   const { id } = useParams();
+  const [now] = useState(() => Date.now());
 
   const { data: startup, isLoading: startupLoading } = useQuery({
     queryKey: ['startup', id],
@@ -132,7 +134,7 @@ export default function StartupDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {openOpps.map((opp, i) => {
-                    const daysLeft = Math.ceil((new Date(opp.deadline) - Date.now()) / 864e5);
+                    const daysLeft = Math.ceil((new Date(opp.deadline) - now) / 864e5);
                     return (
                       <motion.div key={opp._id}
                         initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}

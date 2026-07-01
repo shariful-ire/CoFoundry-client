@@ -29,9 +29,9 @@ async function uploadToImgBB(file) {
 
 export default function AdminProfilePage() {
   const { user, refetch } = useAuth();
-  const [imagePreview, setImagePreview] = useState(null);
-  const [imageUrl,     setImageUrl]     = useState('');
-  const [uploading,    setUploading]    = useState(false);
+  const [imageOverride, setImageOverride] = useState(null); // set only once the user picks a new file
+  const [imageUrl,      setImageUrl]      = useState('');
+  const [uploading,     setUploading]     = useState(false);
   const fileRef = useRef(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
@@ -41,15 +41,16 @@ export default function AdminProfilePage() {
   useEffect(() => {
     if (user) {
       reset({ name: user.name ?? '', phone: user.phone ?? '' });
-      if (user.image) setImagePreview(user.image);
     }
   }, [user, reset]);
+
+  const imagePreview = imageOverride ?? user?.image ?? null;
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { toast.error('Max 2 MB'); return; }
-    setImagePreview(URL.createObjectURL(file));
+    setImageOverride(URL.createObjectURL(file));
     setUploading(true);
     try {
       const url = await uploadToImgBB(file);
@@ -57,7 +58,7 @@ export default function AdminProfilePage() {
       toast.success('Photo ready — save to apply.');
     } catch {
       toast.error('Upload failed');
-      setImagePreview(user?.image ?? null);
+      setImageOverride(null);
     } finally { setUploading(false); }
   };
 
@@ -134,7 +135,7 @@ export default function AdminProfilePage() {
               <input type="email" value={user?.email ?? ''} disabled readOnly
                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-border text-sm text-text-muted bg-surface-alt/60 outline-none cursor-not-allowed" />
             </div>
-            <p className="text-xs text-text-muted mt-1.5">Your login email can't be changed.</p>
+            <p className="text-xs text-text-muted mt-1.5">Your login email can&apos;t be changed.</p>
           </div>
 
           <motion.button type="submit" disabled={saveMutation.isPending || uploading}

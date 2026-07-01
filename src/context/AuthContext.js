@@ -5,12 +5,22 @@ import api from '@/lib/axios';
 
 const AuthContext = createContext(null);
 
+// The auth cookie is HttpOnly (can't be read here), but a non-HttpOnly
+// "has-session" flag cookie is set alongside it, so we can tell up front
+// whether a session might exist — without that, we'd have to call
+// /api/auth/me and synchronously react to its result inside an effect.
+function hasSessionCookie() {
+  return typeof document !== 'undefined' && document.cookie.includes('has-session=1');
+}
+
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(hasSessionCookie); // only wait on the check if a session might exist
   const loginCalled = useRef(false); // prevents fetchSession from overwriting explicit login()
 
   const fetchSession = useCallback(async () => {
+    if (!hasSessionCookie()) return; // already reflected by the lazy initial state above
+
     try {
       const { data } = await api.get('/api/auth/me');
       if (!loginCalled.current) setUser(data);
@@ -22,7 +32,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    fetchSession();
+    (async () => {
+      await fetchSession();
+    })();
   }, [fetchSession]);
 
   const login = useCallback((userData) => {

@@ -156,6 +156,7 @@ function ApplyForm({ opp }) {
 
 export default function OpportunityDetailPage() {
   const { id } = useParams();
+  const [now] = useState(() => Date.now());
 
   const { data: opp, isLoading } = useQuery({
     queryKey: ['opportunity', id],
@@ -183,7 +184,7 @@ export default function OpportunityDetailPage() {
     );
   }
 
-  const daysLeft = Math.ceil((new Date(opp.deadline) - Date.now()) / 864e5);
+  const daysLeft = Math.ceil((new Date(opp.deadline) - now) / 864e5);
 
   return (
     <div className="min-h-screen bg-surface-alt">

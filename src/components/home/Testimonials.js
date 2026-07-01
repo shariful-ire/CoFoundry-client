@@ -102,7 +102,7 @@ function TestimonialCard({ t }) {
       <div className="relative">
         <TbQuote className="absolute -top-1 -left-1 text-brand-100 text-4xl" />
         <p className="text-sm text-text-muted leading-relaxed pt-4 pl-2 italic">
-          "{t.quote}"
+          &quot;{t.quote}&quot;
         </p>
       </div>
 

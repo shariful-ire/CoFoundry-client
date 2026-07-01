@@ -19,6 +19,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [prevPathname, setPrevPathname] = useState(pathname);
 
   const { user, logout } = useAuth();
   const profileHref = user?.role === 'collaborator' ? '/dashboard/collaborator/profile'
@@ -31,10 +32,13 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // close mobile menu on route change
-  useEffect(() => {
+  // Close the mobile menu on route change — adjusted during render rather
+  // than in an effect, since it's just resetting state in response to a
+  // prop (pathname) changing.
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setMobileOpen(false);
-  }, [pathname]);
+  }
 
   const isActive = (href) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion, useInView } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TbArrowRight, TbClock, TbMapPin, TbBriefcase } from 'react-icons/tb';
 import api from '@/lib/axios';
@@ -20,7 +20,8 @@ const cardVariant = {
 };
 
 function OpportunityCard({ opp }) {
-  const daysLeft = Math.ceil((new Date(opp.deadline) - Date.now()) / 864e5);
+  const [now] = useState(() => Date.now());
+  const daysLeft = Math.ceil((new Date(opp.deadline) - now) / 864e5);
   return (
     <motion.div variants={cardVariant} whileHover={{ y: -3, transition: { duration: 0.18 } }}
       className="group bg-white rounded-2xl border border-border p-5 flex flex-col gap-4 shadow-sm hover:shadow-lg hover:shadow-brand-100/50 transition-shadow duration-300">

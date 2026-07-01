@@ -20,6 +20,7 @@ const WORK_BADGE = {
 export default function ManageOpportunitiesPage() {
   const qc = useQueryClient();
   const [delId, setDelId] = useState(null);
+  const [now] = useState(() => Date.now());
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-opportunities'],
@@ -75,7 +76,7 @@ export default function ManageOpportunitiesPage() {
         ) : (
           <div className="space-y-4">
             {opps.map((opp, i) => {
-              const daysLeft = Math.ceil((new Date(opp.deadline) - Date.now()) / 864e5);
+              const daysLeft = Math.ceil((new Date(opp.deadline) - now) / 864e5);
               return (
                 <motion.div key={opp._id}
                   initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}

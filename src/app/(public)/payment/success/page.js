@@ -18,7 +18,7 @@ function SuccessContent() {
       toast.success('Premium activated!');
       refetch();
     }
-  }, [sessionId]);
+  }, [sessionId, refetch]);
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -34,7 +34,7 @@ function SuccessContent() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <h1 className="text-2xl font-extrabold text-text mb-2">You're Premium!</h1>
+          <h1 className="text-2xl font-extrabold text-text mb-2">You&apos;re Premium!</h1>
           <p className="text-text-muted text-sm mb-2">
             Your payment was successful. Unlimited opportunity posts are now unlocked on your account.
           </p>
