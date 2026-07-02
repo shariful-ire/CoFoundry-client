@@ -83,7 +83,10 @@ export default function ManageOpportunitiesPage() {
                   transition={{ delay: i * 0.06 }}
                   className="bg-white rounded-2xl border border-border shadow-sm p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-text text-base mb-2">{opp.roleTitle}</h3>
+                    <h3 className="font-bold text-text text-base mb-0.5">{opp.roleTitle}</h3>
+                    {opp.startupId?.startupName && (
+                      <p className="text-xs text-brand-600 font-medium mb-2">@ {opp.startupId.startupName}</p>
+                    )}
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border text-xs font-medium ${WORK_BADGE[opp.workType] ?? ''}`}>
                         <TbMapPin className="text-xs" /> {opp.workType}

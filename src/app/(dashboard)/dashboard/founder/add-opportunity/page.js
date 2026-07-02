@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,13 +10,14 @@ import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import {
-  TbPlus, TbX, TbCheck, TbCrown, TbArrowRight, TbLock,
+  TbPlus, TbX, TbCheck, TbCrown, TbArrowRight, TbLock, TbBuildingSkyscraper,
 } from 'react-icons/tb';
 import api from '@/lib/axios';
 
 const FREE_LIMIT = 3;
 
 const schema = z.object({
+  startupId:       z.string().min(1, 'Select a startup'),
   roleTitle:       z.string().min(3, 'Role title is required'),
   workType:        z.enum(['Remote', 'Hybrid', 'On-site'], { required_error: 'Select a work type' }),
   commitmentLevel: z.enum(['Full-time', 'Part-time'], { required_error: 'Select commitment level' }),
@@ -37,13 +38,31 @@ export default function AddOpportunityPage() {
     queryFn:  () => api.get('/api/opportunities/mine').then((r) => r.data),
   });
 
+  const { data: startups, isLoading: startupsLoading } = useQuery({
+    queryKey: ['my-startups'],
+    queryFn:  () => api.get('/api/startups/mine').then((r) => r.data),
+  });
+
+  const approvedStartups = (startups ?? []).filter((s) => s.status === 'approved');
+  const hasApprovedStartup = approvedStartups.length > 0;
+
   const currentCount = oppsData?.totalCount ?? 0;
   const isPremium    = user?.isPremium ?? false;
   const blocked      = currentCount >= FREE_LIMIT && !isPremium;
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
+    defaultValues: { startupId: '' },
   });
+
+  const selectedStartupId = watch('startupId');
+
+  // Default to the founder's (only, or first) approved startup once loaded.
+  useEffect(() => {
+    if (approvedStartups.length > 0 && !selectedStartupId) {
+      setValue('startupId', approvedStartups[0]._id);
+    }
+  }, [approvedStartups, selectedStartupId, setValue]);
 
   const addSkill = () => {
     const s = skillInput.trim();
@@ -56,9 +75,9 @@ export default function AddOpportunityPage() {
 
   const postMutation = useMutation({
     mutationFn: (data) => api.post('/api/opportunities', { ...data, requiredSkills: skills }),
-    onSuccess: () => {
+    onSuccess: (_res, variables) => {
       toast.success('Opportunity posted!');
-      reset();
+      reset({ startupId: variables.startupId, roleTitle: '', workType: '', commitmentLevel: '', deadline: '' });
       setSkills([]);
       qc.invalidateQueries({ queryKey: ['my-opportunities'] });
     },
@@ -78,7 +97,28 @@ export default function AddOpportunityPage() {
       </motion.div>
 
       <AnimatePresence>
-        {blocked && (
+        {!startupsLoading && !hasApprovedStartup && (
+          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+            className="rounded-2xl gradient-hero p-8 text-white text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mx-auto">
+              <TbBuildingSkyscraper className="text-3xl text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold mb-1">No approved startup yet</h2>
+              <p className="text-brand-200 text-sm max-w-sm mx-auto">
+                {(startups ?? []).length === 0
+                  ? "You haven't created a startup yet. Create one to start posting opportunities."
+                  : 'Your startup is still awaiting admin approval. You can post opportunities once it\'s approved.'}
+              </p>
+            </div>
+            <Link href="/dashboard/founder/startup"
+              className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-white text-brand-700 font-bold text-sm shadow-xl">
+              <TbBuildingSkyscraper /> {(startups ?? []).length === 0 ? 'Create Your Startup' : 'View My Startups'}
+            </Link>
+          </motion.div>
+        )}
+
+        {hasApprovedStartup && blocked && (
           <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
             className="rounded-2xl gradient-hero p-8 text-white text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mx-auto">
@@ -107,7 +147,7 @@ export default function AddOpportunityPage() {
         )}
       </AnimatePresence>
 
-      {!blocked && (
+      {hasApprovedStartup && !blocked && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl border border-border shadow-sm p-6">
 
@@ -124,6 +164,17 @@ export default function AddOpportunityPage() {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+            {approvedStartups.length > 1 && (
+              <div>
+                <label className="block text-xs font-semibold text-text mb-1.5">Startup <span className="text-danger">*</span></label>
+                <select {...register('startupId')}
+                  className={`w-full px-4 py-3 rounded-xl border text-sm text-text bg-surface-alt outline-none focus:bg-white focus:border-brand-400 ${errors.startupId ? 'border-danger' : 'border-border'}`}>
+                  {approvedStartups.map((s) => <option key={s._id} value={s._id}>{s.startupName}</option>)}
+                </select>
+                {errors.startupId && <p className="text-xs text-danger mt-1.5">{errors.startupId.message}</p>}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-text mb-1.5">Role Title <span className="text-danger">*</span></label>
               <input type="text" placeholder="e.g. Full-Stack Developer" {...register('roleTitle')}

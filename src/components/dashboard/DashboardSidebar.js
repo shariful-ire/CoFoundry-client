@@ -14,7 +14,7 @@ import { HiOutlineUserCircle } from 'react-icons/hi2';
 const NAV = {
   founder: [
     { label: 'Overview',            href: '/dashboard/founder',              icon: TbLayoutDashboard },
-    { label: 'My Startup',          href: '/dashboard/founder/startup',      icon: TbRocket },
+    { label: 'My Startups',         href: '/dashboard/founder/startup',      icon: TbRocket },
     { label: 'Add Opportunity',     href: '/dashboard/founder/add-opportunity', icon: TbPlus },
     { label: 'Manage Opportunities',href: '/dashboard/founder/opportunities', icon: TbBriefcase },
     { label: 'Applications',        href: '/dashboard/founder/applications',  icon: TbMail },

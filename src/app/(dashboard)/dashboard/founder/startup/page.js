@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  TbRocket, TbBuildingSkyscraper, TbFileText, TbCamera,
-  TbArrowRight, TbEdit, TbTrash, TbCheck, TbClock,
+  TbRocket, TbBuildingSkyscraper, TbFileText, TbCamera, TbPlus,
+  TbArrowLeft, TbEdit, TbTrash, TbCheck, TbClock,
 } from 'react-icons/tb';
 import api from '@/lib/axios';
 
@@ -40,38 +40,83 @@ const STATUS_STYLE = {
   pending:  'bg-amber-50  text-amber-700  border-amber-200',
 };
 
+/* ── Card shown in the list view ── */
+function StartupCard({ startup, onEdit, onDelete, deleting }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-2xl border border-border shadow-sm p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[startup.status] ?? STATUS_STYLE.pending}`}>
+          {startup.status === 'approved' ? <TbCheck /> : <TbClock />}
+          {startup.status.charAt(0).toUpperCase() + startup.status.slice(1)}
+        </span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => onEdit(startup)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-text-muted hover:border-brand-400 hover:text-brand-600 transition-all">
+            <TbEdit /> Edit
+          </button>
+          <button onClick={() => onDelete(startup)} disabled={deleting}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-danger/30 text-xs font-semibold text-danger hover:bg-danger-light transition-all disabled:opacity-60">
+            <TbTrash /> Delete
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="w-16 h-16 rounded-xl border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
+          {startup.logo
+            ? <img src={startup.logo} alt={startup.startupName} className="w-full h-full object-cover" />
+            : <TbRocket className="text-2xl text-text-muted" />}
+        </div>
+        <div>
+          <p className="text-base font-bold text-text">{startup.startupName}</p>
+          <p className="text-xs text-text-muted">{startup.industry} · {startup.fundingStage}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs text-text-muted mb-1 flex items-center gap-1"><TbFileText /> Description</p>
+        <p className="text-sm text-text-muted leading-relaxed line-clamp-3">{startup.description}</p>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function MyStartupPage() {
-  const [editing, setEditing] = useState(false);
-  const [logoOverride, setLogoOverride] = useState(null); // set only once the user picks a new file
+  const [mode, setMode] = useState('list'); // 'list' | 'form'
+  const [activeStartup, setActiveStartup] = useState(null); // null = creating a new one
+  const [logoOverride, setLogoOverride] = useState(null);
   const [logoUrl,       setLogoUrl]     = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [formTarget,    setFormTarget]  = useState(null); // tracks which startup the form fields currently belong to
   const fileRef = useRef(null);
   const qc = useQueryClient();
 
-  const { data: startup, isLoading } = useQuery({
-    queryKey: ['my-startup'],
-    queryFn:  async () => {
-      try {
-        const res = await api.get('/api/startups/mine');
-        return res.data;
-      } catch (err) {
-        if (err.response?.status === 404) return null;
-        throw err;
-      }
-    },
+  const { data: startups, isLoading } = useQuery({
+    queryKey: ['my-startups'],
+    queryFn:  () => api.get('/api/startups/mine').then((r) => r.data),
   });
+
+  const list = startups ?? [];
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
     resolver: zodResolver(schema),
   });
 
-  useEffect(() => {
-    if (startup) {
-      reset({ startupName: startup.startupName, industry: startup.industry, fundingStage: startup.fundingStage, description: startup.description });
-    }
-  }, [startup, reset]);
+  // Reset the form fields whenever we switch which startup we're editing (or
+  // start a fresh create) — adjusted during render rather than in an effect,
+  // since it's just resetting state in response to activeStartup changing.
+  const target = mode === 'form' ? (activeStartup?._id ?? 'new') : null;
+  if (mode === 'form' && target !== formTarget) {
+    setFormTarget(target);
+    reset(activeStartup
+      ? { startupName: activeStartup.startupName, industry: activeStartup.industry, fundingStage: activeStartup.fundingStage, description: activeStartup.description }
+      : { startupName: '', industry: '', fundingStage: '', description: '' });
+    setLogoOverride(null);
+    setLogoUrl('');
+  }
 
-  const logoPreview = logoOverride ?? startup?.logo ?? null;
+  const logoPreview = logoOverride ?? activeStartup?.logo ?? null;
 
   const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
@@ -92,33 +137,37 @@ export default function MyStartupPage() {
   const saveMutation = useMutation({
     mutationFn: (data) => {
       const payload = { ...data, ...(logoUrl && { logo: logoUrl }) };
-      return startup
-        ? api.put(`/api/startups/${startup._id}`, payload)
+      return activeStartup
+        ? api.put(`/api/startups/${activeStartup._id}`, payload)
         : api.post('/api/startups', payload);
     },
     onSuccess: () => {
-      toast.success(startup ? 'Startup updated!' : 'Startup submitted for review!');
-      setEditing(false);
-      qc.invalidateQueries({ queryKey: ['my-startup'] });
+      toast.success(activeStartup ? 'Startup updated!' : 'Startup submitted for review!');
+      setMode('list');
+      setActiveStartup(null);
+      qc.invalidateQueries({ queryKey: ['my-startups'] });
       qc.invalidateQueries({ queryKey: ['my-opportunities'] });
     },
     onError: (err) => toast.error(err?.response?.data?.message ?? 'Something went wrong.'),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/api/startups/${startup._id}`),
+    mutationFn: (startup) => api.delete(`/api/startups/${startup._id}`),
     onSuccess: () => {
       toast.success('Startup deleted.');
-      qc.invalidateQueries({ queryKey: ['my-startup'] });
-      reset({});
+      qc.invalidateQueries({ queryKey: ['my-startups'] });
+      qc.invalidateQueries({ queryKey: ['my-opportunities'] });
     },
     onError: (err) => toast.error(err?.response?.data?.message ?? 'Delete failed.'),
   });
 
-  const handleDelete = () => {
-    if (!confirm('Delete your startup? This cannot be undone.')) return;
-    deleteMutation.mutate();
+  const handleDelete = (startup) => {
+    if (!confirm(`Delete "${startup.startupName}"? This cannot be undone.`)) return;
+    deleteMutation.mutate(startup);
   };
+
+  const openCreate = () => { setActiveStartup(null); setMode('form'); };
+  const openEdit   = (startup) => { setActiveStartup(startup); setMode('form'); };
 
   if (isLoading) {
     return (
@@ -128,66 +177,40 @@ export default function MyStartupPage() {
     );
   }
 
-  if (startup && !editing) {
+  if (mode === 'list') {
     return (
-      <div className="max-w-2xl space-y-6">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-extrabold text-text">My Startup</h1>
-          <p className="text-text-muted text-sm mt-1">Your startup profile visible to collaborators.</p>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl border border-border shadow-sm p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[startup.status] ?? STATUS_STYLE.pending}`}>
-              {startup.status === 'approved' ? <TbCheck /> : <TbClock />}
-              {startup.status.charAt(0).toUpperCase() + startup.status.slice(1)}
-            </span>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setEditing(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-text-muted hover:border-brand-400 hover:text-brand-600 transition-all">
-                <TbEdit /> Edit
-              </button>
-              <button onClick={handleDelete} disabled={deleteMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-danger/30 text-xs font-semibold text-danger hover:bg-danger-light transition-all disabled:opacity-60">
-                <TbTrash /> Delete
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl border border-border bg-surface-alt flex items-center justify-center overflow-hidden shrink-0">
-              {startup.logo
-                ? <img src={startup.logo} alt={startup.startupName} className="w-full h-full object-cover" />
-                : <TbRocket className="text-2xl text-text-muted" />}
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">Logo</p>
-              <p className="text-sm font-semibold text-text">{startup.logo ? 'Uploaded' : 'Not set'}</p>
-            </div>
-          </div>
-
-          {[
-            { icon: TbRocket,            label: 'Startup Name',   value: startup.startupName  },
-            { icon: TbBuildingSkyscraper, label: 'Industry',      value: startup.industry     },
-            { icon: TbBuildingSkyscraper, label: 'Funding Stage', value: startup.fundingStage },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-                <Icon className="text-brand-500 text-base" />
-              </div>
-              <div>
-                <p className="text-xs text-text-muted">{label}</p>
-                <p className="text-sm font-semibold text-text">{value}</p>
-              </div>
-            </div>
-          ))}
-
+      <div className="max-w-3xl space-y-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <p className="text-xs text-text-muted mb-1 flex items-center gap-1"><TbFileText /> Description</p>
-            <p className="text-sm text-text-muted leading-relaxed">{startup.description}</p>
+            <h1 className="text-2xl font-extrabold text-text">My Startups</h1>
+            <p className="text-text-muted text-sm mt-1">Manage your startup profiles visible to collaborators.</p>
           </div>
+          <button onClick={openCreate}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl gradient-brand text-white font-bold text-sm shadow-md hover:opacity-90 transition-opacity">
+            <TbPlus /> Add Another Startup
+          </button>
         </motion.div>
+
+        {list.length === 0 ? (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl border border-dashed border-border p-12 text-center">
+            <TbRocket className="text-4xl text-brand-200 mx-auto mb-3" />
+            <p className="text-text-muted text-sm mb-4">You haven&apos;t created a startup yet.</p>
+            <button onClick={openCreate}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-brand text-white font-bold text-sm shadow-md">
+              <TbPlus /> Create Your Startup
+            </button>
+          </motion.div>
+        ) : (
+          <AnimatePresence>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {list.map((s) => (
+                <StartupCard key={s._id} startup={s} onEdit={openEdit} onDelete={handleDelete} deleting={deleteMutation.isPending} />
+              ))}
+            </div>
+          </AnimatePresence>
+        )}
       </div>
     );
   }
@@ -195,9 +218,13 @@ export default function MyStartupPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-extrabold text-text">{editing ? 'Edit Startup' : 'Create Your Startup'}</h1>
+        <button onClick={() => setMode('list')}
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-brand-600 font-medium mb-4 transition-colors">
+          <TbArrowLeft /> Back to My Startups
+        </button>
+        <h1 className="text-2xl font-extrabold text-text">{activeStartup ? 'Edit Startup' : 'Create a New Startup'}</h1>
         <p className="text-text-muted text-sm mt-1">
-          {editing ? 'Update your startup details.' : 'Submit your startup for review. Approved startups appear publicly.'}
+          {activeStartup ? 'Update your startup details.' : 'Submit your startup for review. Approved startups appear publicly.'}
         </p>
       </motion.div>
 
@@ -267,14 +294,12 @@ export default function MyStartupPage() {
               className="flex items-center gap-2 px-6 py-3 rounded-xl gradient-brand text-white font-bold text-sm shadow-md disabled:opacity-60">
               {saveMutation.isPending
                 ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                : <><TbCheck /> {editing ? 'Save Changes' : 'Submit for Review'}</>}
+                : <><TbCheck /> {activeStartup ? 'Save Changes' : 'Submit for Review'}</>}
             </motion.button>
-            {editing && (
-              <button type="button" onClick={() => setEditing(false)}
-                className="px-5 py-3 rounded-xl border border-border text-sm font-semibold text-text-muted hover:border-danger hover:text-danger transition-all">
-                Cancel
-              </button>
-            )}
+            <button type="button" onClick={() => setMode('list')}
+              className="px-5 py-3 rounded-xl border border-border text-sm font-semibold text-text-muted hover:border-danger hover:text-danger transition-all">
+              Cancel
+            </button>
           </div>
         </form>
       </motion.div>

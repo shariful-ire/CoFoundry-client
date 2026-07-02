@@ -68,7 +68,7 @@ export default function FounderOverview() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: 'Add Opportunity',   href: '/dashboard/founder/add-opportunity', gradient: 'gradient-brand bg-brand-600', text: 'text-white' },
-            { label: 'Manage Startup',    href: '/dashboard/founder/startup',          gradient: 'bg-surface-alt border border-border', text: 'text-text' },
+            { label: 'My Startups',       href: '/dashboard/founder/startup',          gradient: 'bg-surface-alt border border-border', text: 'text-text' },
             { label: 'View Applications', href: '/dashboard/founder/applications',     gradient: 'bg-surface-alt border border-border', text: 'text-text' },
           ].map(({ label, href, gradient, text }) => (
             <Link key={href} href={href}
