@@ -15,11 +15,15 @@ function hasSessionCookie() {
 
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
-  const [loading, setLoading] = useState(hasSessionCookie); // only wait on the check if a session might exist
+  // Always start true — the server has no `document`, so any lazy check
+  // based on the cookie would disagree between SSR and the client and
+  // cause a hydration mismatch. Resolved to the real value right after
+  // mount instead, in the effect below.
+  const [loading, setLoading] = useState(true);
   const loginCalled = useRef(false); // prevents fetchSession from overwriting explicit login()
 
   const fetchSession = useCallback(async () => {
-    if (!hasSessionCookie()) return; // already reflected by the lazy initial state above
+    if (!hasSessionCookie()) { setLoading(false); return; }
 
     try {
       const { data } = await api.get('/api/auth/me');
